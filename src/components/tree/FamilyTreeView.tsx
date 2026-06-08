@@ -33,9 +33,11 @@ const TreeCard = memo(function TreeCard({ person }: { person: Person }) {
     <Link
       to={`/person/${person.id}`}
       title={fullName(person)}
-      className="group relative flex flex-col items-center gap-2 rounded-2xl p-3 w-[120px]
+      className="group relative flex flex-col items-center gap-1.5 rounded-2xl p-2.5
+        w-[96px] sm:w-[112px]
         bg-white/95 border-2 border-transparent
         hover:border-gold-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.25)]
+        active:border-gold-300 active:shadow-[0_12px_40px_rgba(0,0,0,0.25)]
         hover:-translate-y-1.5 transition-all duration-200 select-none"
     >
       {/* Avatar */}
@@ -213,9 +215,14 @@ export default function FamilyTreeView({ persons }: { persons: Person[] }) {
   }
 
   return (
-    /* Horizontally + vertically scrollable canvas */
-    <div className="overflow-auto pb-12 pt-10">
-      <div className="flex gap-20 justify-start items-start min-w-max px-12">
+    /*
+      The outer div clips and scrolls.
+      The inner div uses inline-flex so it grows to exactly its content
+      width — this is what makes horizontal scroll work on iOS/Android.
+    */
+    <div className="w-full overflow-x-auto overflow-y-auto no-scrollbar"
+      style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="inline-flex gap-16 items-start px-8 pt-10 pb-16 min-h-[300px]">
         {rootBlocks.map(root => (
           <RootBlock
             key={root.id}
