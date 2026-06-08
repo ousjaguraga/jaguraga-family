@@ -1,307 +1,230 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { getUrl } from 'aws-amplify/storage';
-import { X, UserPlus } from 'lucide-react';
-import { Person, GENERATION_LABELS, GENERATION_ORDER } from '../../types';
-import { fullName, initials } from '../../utils/helpers';
-import { groupByGeneration } from '../../utils/helpers';
+import { UserPlus } from 'lucide-react';
+import { Person, type Generation } from '../../types';
+import { initials, fullName } from '../../utils/helpers';
 
-interface Props {
-  persons: Person[];
-}
+/* ── Generation gradient map ─────────────────────────────────────────────── */
+const GEN_GRADIENT: Record<Generation, string> = {
+  GREAT_GRANDPARENT: 'from-violet-500 to-purple-700',
+  GRANDPARENT:       'from-blue-500   to-cyan-700',
+  PARENT:            'from-emerald-500 to-teal-700',
+  CURRENT:           'from-amber-400  to-orange-500',
+  CHILD:             'from-rose-400   to-pink-600',
+};
 
-// ── small clickable chip ─────────────────────────────────────────────────────
-
-function PersonChip({
-  person,
-  selected,
-  onClick,
-}: {
-  person:   Person;
-  selected: boolean;
-  onClick:  () => void;
-}) {
+/* ── Single person card inside the tree ─────────────────────────────────── */
+const TreeCard = memo(function TreeCard({ person }: { person: Person }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!person.photoKey) return;
-    getUrl({ path: person.photoKey }).then(({ url }) => setPhotoUrl(url.toString())).catch(() => {});
+    getUrl({ path: person.photoKey })
+      .then(({ url }) => setPhotoUrl(url.toString()))
+      .catch(() => {});
   }, [person.photoKey]);
 
+  const gradient  = GEN_GRADIENT[person.generation] ?? 'from-gray-400 to-gray-600';
+  const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
+  const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
+
   return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all group
-        ${selected
-          ? 'bg-burgundy-100 ring-2 ring-burgundy-600 scale-105 shadow-md'
-          : 'hover:bg-gray-100'
-        }`}
+    <Link
+      to={`/person/${person.id}`}
+      title={fullName(person)}
+      className="group relative flex flex-col items-center gap-2 rounded-2xl p-3 w-[120px]
+        bg-white/95 border-2 border-transparent
+        hover:border-gold-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.25)]
+        hover:-translate-y-1.5 transition-all duration-200 select-none"
     >
-      <div className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center
-        text-xs font-bold flex-shrink-0 border-2 transition-colors
-        ${selected
-          ? 'border-burgundy-600 bg-burgundy-200 text-burgundy-800'
-          : 'border-gray-200 bg-gray-100 text-gray-600 group-hover:border-gray-300'
-        }`}>
+      {/* Avatar */}
+      <div className={`w-12 h-12 rounded-xl overflow-hidden flex-shrink-0
+        flex items-center justify-center text-xs font-bold text-white
+        bg-gradient-to-br ${gradient} shadow-sm`}>
         {photoUrl
           ? <img src={photoUrl} alt={fullName(person)} className="w-full h-full object-cover" />
           : <span>{initials(person)}</span>
         }
       </div>
-      <span className={`text-xs leading-tight text-center max-w-[64px] truncate
-        ${selected ? 'text-burgundy-800 font-semibold' : 'text-gray-600'}`}>
-        {person.firstName}
-      </span>
-    </button>
+
+      {/* Name */}
+      <div className="text-center w-full">
+        <p className="text-[11px] font-bold text-gray-900 leading-tight truncate">
+          {person.firstName}
+        </p>
+        <p className="text-[10px] text-gray-500 leading-tight truncate">
+          {person.lastName}
+        </p>
+        {birthYear && (
+          <p className="text-[9px] text-gray-400 mt-0.5 tabular-nums">
+            {birthYear}{deathYear ? `–${deathYear}` : person.isDeceased ? '†' : ''}
+          </p>
+        )}
+      </div>
+
+      {/* Quick-add overlay on hover */}
+      <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0
+        group-hover:opacity-100 transition-opacity z-10 flex gap-1 whitespace-nowrap">
+        <Link to={`/add-relative/${person.id}/child`}
+          onClick={e => e.stopPropagation()}
+          title="Add child"
+          className="bg-burgundy-700 text-white text-[9px] font-semibold px-2 py-1 rounded-lg
+            hover:bg-burgundy-600 flex items-center gap-0.5 shadow-lg">
+          <UserPlus className="w-2.5 h-2.5" />
+          Child
+        </Link>
+      </div>
+    </Link>
   );
-}
+});
 
-// ── single person node in the focused mini-tree ──────────────────────────────
-
-function FocusNode({
+/* ── Recursive branch: one person + all their descendants ────────────────── */
+function TreeBranch({
   person,
-  label,
-  highlight,
-  onSelect,
+  allPersons,
+  visited,
 }: {
-  person:   Person;
-  label?:   string;
-  highlight?: boolean;
-  onSelect: (id: string) => void;
+  person:     Person;
+  allPersons: Person[];
+  visited:    Set<string>;
 }) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  if (visited.has(person.id)) return null;
+  const seen = new Set([...visited, person.id]);
 
-  useEffect(() => {
-    if (!person.photoKey) return;
-    getUrl({ path: person.photoKey }).then(({ url }) => setPhotoUrl(url.toString())).catch(() => {});
-  }, [person.photoKey]);
+  // Deduplicate children (a child may list both parents)
+  const childrenMap = new Map<string, Person>();
+  allPersons
+    .filter(p => p.fatherId === person.id || p.motherId === person.id)
+    .forEach(p => childrenMap.set(p.id, p));
+  const children = [...childrenMap.values()];
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      {label && <span className="text-xs text-gray-400 mb-0.5">{label}</span>}
-      <button
-        onClick={() => onSelect(person.id)}
-        className={`flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all group
-          ${highlight
-            ? 'bg-burgundy-700 ring-2 ring-burgundy-500 shadow-lg'
-            : 'bg-white border border-gray-200 hover:border-burgundy-300 hover:shadow-sm'
-          }`}
-      >
-        <div className={`w-14 h-14 rounded-full overflow-hidden flex items-center justify-center
-          text-sm font-bold border-2
-          ${highlight
-            ? 'border-gold-400 bg-gold-100 text-gold-800'
-            : 'border-gray-200 bg-burgundy-100 text-burgundy-700'
-          }`}>
-          {photoUrl
-            ? <img src={photoUrl} alt={fullName(person)} className="w-full h-full object-cover" />
-            : <span>{initials(person)}</span>
-          }
-        </div>
-        <div className="text-center">
-          <p className={`text-xs font-semibold leading-tight ${highlight ? 'text-white' : 'text-gray-800'}`}>
-            {person.firstName}
-          </p>
-          <p className={`text-xs leading-tight ${highlight ? 'text-burgundy-200' : 'text-gray-400'}`}>
-            {person.lastName}
-          </p>
-        </div>
-      </button>
-      <Link
-        to={`/person/${person.id}`}
-        className="text-xs text-burgundy-600 hover:underline mt-0.5"
-        onClick={e => e.stopPropagation()}
-      >
-        View
-      </Link>
+    <div className="flex flex-col items-center">
+      <TreeCard person={person} />
+
+      {children.length > 0 && (
+        <>
+          {/* Drop line from card to children row */}
+          <div className="tree-drop" />
+
+          {/* Children row */}
+          <ul className="tree-row">
+            {children.map(child => (
+              <li key={child.id} className="tree-col">
+                {/* Stub from horizontal connector down to child */}
+                <div className="tree-stub" />
+                <TreeBranch person={child} allPersons={allPersons} visited={seen} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
 
-// ── connector SVG ─────────────────────────────────────────────────────────────
+/* ── Root pair: optionally show a couple side-by-side before their tree ──── */
+function RootBlock({
+  person,
+  allPersons,
+  visited,
+}: {
+  person:     Person;
+  allPersons: Person[];
+  visited:    Set<string>;
+}) {
+  const spouse = person.spouseId
+    ? allPersons.find(p => p.id === person.spouseId)
+    : null;
 
-function VLine({ height = 32 }: { height?: number }) {
-  return <div className="w-px bg-burgundy-200 mx-auto" style={{ height }} />;
+  // children via this person OR their spouse
+  const childrenMap = new Map<string, Person>();
+  allPersons
+    .filter(p => p.fatherId === person.id || p.motherId === person.id ||
+                 (spouse && (p.fatherId === spouse.id || p.motherId === spouse.id)))
+    .forEach(p => childrenMap.set(p.id, p));
+  const children = [...childrenMap.values()];
+
+  const seen = new Set([...visited, person.id, ...(spouse ? [spouse.id] : [])]);
+
+  if (!spouse) {
+    return <TreeBranch person={person} allPersons={allPersons} visited={visited} />;
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Couple row */}
+      <div className="flex items-center gap-3">
+        <TreeCard person={person} />
+        {/* Hearts / marriage bar */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-10 h-0.5 bg-gold-400/60 rounded-full" />
+          <span className="text-gold-400 text-xs">♥</span>
+          <div className="w-10 h-0.5 bg-gold-400/60 rounded-full" />
+        </div>
+        <TreeCard person={spouse} />
+      </div>
+
+      {children.length > 0 && (
+        <>
+          <div className="tree-drop" />
+          <ul className="tree-row">
+            {children.map(child => (
+              <li key={child.id} className="tree-col">
+                <div className="tree-stub" />
+                <TreeBranch person={child} allPersons={allPersons} visited={seen} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
 }
 
-function HConnector() {
-  return <div className="flex-1 h-px bg-burgundy-200 self-center" />;
-}
-
-// ── main component ────────────────────────────────────────────────────────────
-
-export default function FamilyTreeView({ persons }: Props) {
-  const [selectedId,   setSelectedId]   = useState<string | null>(null);
-  const [showAllSibs,  setShowAllSibs]  = useState(false);
-  const [showAllKids,  setShowAllKids]  = useState(false);
-
-  // Reset expanded state when the selected person changes
-  useEffect(() => {
-    setShowAllSibs(false);
-    setShowAllKids(false);
-  }, [selectedId]);
-
-  const selected  = persons.find(p => p.id === selectedId) ?? null;
-  const father    = selected?.fatherId  ? persons.find(p => p.id === selected.fatherId)  : null;
-  const mother    = selected?.motherId  ? persons.find(p => p.id === selected.motherId)  : null;
-  const children  = selected ? persons.filter(p => p.fatherId === selected.id || p.motherId === selected.id) : [];
-  const siblings  = selected
-    ? persons.filter(p =>
-        p.id !== selected.id &&
-        ((selected.fatherId && p.fatherId === selected.fatherId) ||
-         (selected.motherId && p.motherId === selected.motherId)),
-      )
-    : [];
-
-  const grouped = groupByGeneration(persons);
-  const activeGenerations = GENERATION_ORDER.filter(g => (grouped.get(g)?.length ?? 0) > 0);
-
+/* ── Main export ─────────────────────────────────────────────────────────── */
+export default function FamilyTreeView({ persons }: { persons: Person[] }) {
   if (persons.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-400">
-        <p>No family members yet. The admin will add ancestors soon.</p>
+      <div className="flex flex-col items-center justify-center py-32 text-white/40 gap-3">
+        <p className="text-lg font-medium">No family members yet.</p>
+        <p className="text-sm">The admin will add the first ancestors to get started.</p>
       </div>
     );
   }
 
+  // Find persons who have no parent present in the dataset → they are tree roots
+  const ids = new Set(persons.map(p => p.id));
+  const roots = persons.filter(p => {
+    const fatherPresent = p.fatherId && ids.has(p.fatherId);
+    const motherPresent = p.motherId && ids.has(p.motherId);
+    return !fatherPresent && !motherPresent;
+  });
+
+  // Deduplicate: if a root has a spouse who is also a root, only show the pair once
+  const shownIds = new Set<string>();
+  const rootBlocks: Person[] = [];
+  for (const r of roots) {
+    if (shownIds.has(r.id)) continue;
+    shownIds.add(r.id);
+    if (r.spouseId && ids.has(r.spouseId)) shownIds.add(r.spouseId);
+    rootBlocks.push(r);
+  }
+
   return (
-    <div className="space-y-6">
-      {/* ── Compact all-members grid ──────────────────────────────────────── */}
-      <div className="space-y-4">
-        {activeGenerations.map(gen => {
-          const members = grouped.get(gen) ?? [];
-          return (
-            <div key={gen}>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-                {GENERATION_LABELS[gen]}
-                <span className="ml-1 font-normal">({members.length})</span>
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {members.map(p => (
-                  <PersonChip
-                    key={p.id}
-                    person={p}
-                    selected={p.id === selectedId}
-                    onClick={() => setSelectedId(p.id === selectedId ? null : p.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+    /* Horizontally + vertically scrollable canvas */
+    <div className="overflow-auto pb-12 pt-10">
+      <div className="flex gap-20 justify-start items-start min-w-max px-12">
+        {rootBlocks.map(root => (
+          <RootBlock
+            key={root.id}
+            person={root}
+            allPersons={persons}
+            visited={new Set()}
+          />
+        ))}
       </div>
-
-      {/* ── Focused mini-tree ─────────────────────────────────────────────── */}
-      {selected && (
-        <div className="border-t border-gray-100 pt-6">
-          {/* dismiss button */}
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold text-gray-600">
-              {fullName(selected)}'s connections
-            </p>
-            <button
-              onClick={() => setSelectedId(null)}
-              className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex flex-col items-center gap-0">
-            {/* Parents row */}
-            {(father || mother) && (
-              <>
-                <div className="flex items-end justify-center gap-6 mb-0">
-                  {father && (
-                    <FocusNode person={father} label="Father" onSelect={setSelectedId} />
-                  )}
-                  {mother && (
-                    <FocusNode person={mother} label="Mother" onSelect={setSelectedId} />
-                  )}
-                </div>
-                <VLine height={28} />
-              </>
-            )}
-
-            {/* Person + siblings row */}
-            <div className="flex items-center gap-3 flex-wrap justify-center">
-              {(showAllSibs ? siblings : siblings.slice(0, 3)).map(sib => (
-                <FocusNode key={sib.id} person={sib} onSelect={setSelectedId} />
-              ))}
-
-              {/* "Show more" / "Show less" toggle */}
-              {siblings.length > 3 && (
-                <button
-                  onClick={() => setShowAllSibs(v => !v)}
-                  className="self-center text-xs font-semibold text-burgundy-700 hover:text-burgundy-500
-                    bg-burgundy-50 hover:bg-burgundy-100 border border-burgundy-200
-                    px-3 py-1.5 rounded-xl transition-colors"
-                >
-                  {showAllSibs ? 'Show less' : `+${siblings.length - 3} more`}
-                </button>
-              )}
-
-              {/* Divider between siblings and selected */}
-              {siblings.length > 0 && (
-                <div className="w-px h-12 bg-gray-200 self-center" />
-              )}
-
-              <FocusNode person={selected} highlight onSelect={setSelectedId} />
-            </div>
-
-            {/* Children row */}
-            {children.length > 0 && (
-              <>
-                <VLine height={28} />
-                <div className="flex items-start gap-4 flex-wrap justify-center">
-                  {(showAllKids ? children : children.slice(0, 4)).map(child => (
-                    <FocusNode key={child.id} person={child} onSelect={setSelectedId} />
-                  ))}
-                  {children.length > 4 && (
-                    <button
-                      onClick={() => setShowAllKids(v => !v)}
-                      className="self-start mt-2 text-xs font-semibold text-burgundy-700 hover:text-burgundy-500
-                        bg-burgundy-50 hover:bg-burgundy-100 border border-burgundy-200
-                        px-3 py-1.5 rounded-xl transition-colors"
-                    >
-                      {showAllKids ? 'Show less' : `+${children.length - 4} more`}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Quick-add links */}
-            <div className="flex gap-3 mt-5 flex-wrap justify-center">
-              {!father && (
-                <Link to={`/add-relative/${selected.id}/father`}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-burgundy-700 border border-dashed border-gray-300 hover:border-burgundy-400 px-3 py-1.5 rounded-lg transition-colors">
-                  <UserPlus className="w-3.5 h-3.5" />
-                  Add father
-                </Link>
-              )}
-              {!mother && (
-                <Link to={`/add-relative/${selected.id}/mother`}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-burgundy-700 border border-dashed border-gray-300 hover:border-burgundy-400 px-3 py-1.5 rounded-lg transition-colors">
-                  <UserPlus className="w-3.5 h-3.5" />
-                  Add mother
-                </Link>
-              )}
-              <Link to={`/add-relative/${selected.id}/child`}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-burgundy-700 border border-dashed border-gray-300 hover:border-burgundy-400 px-3 py-1.5 rounded-lg transition-colors">
-                <UserPlus className="w-3.5 h-3.5" />
-                Add child
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!selectedId && (
-        <p className="text-center text-sm text-gray-400 pt-2">
-          Tap a person above to see their family connections
-        </p>
-      )}
     </div>
   );
 }

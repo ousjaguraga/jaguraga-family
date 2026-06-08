@@ -118,6 +118,69 @@
   border-radius: 2px;
 }
 
+/* ── Family Tree connector lines ─────────────────────────────────────────── */
+
+/* Children sit in a horizontal flex row */
+.tree-row {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Each child column centres its subtree */
+.tree-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px;
+  position: relative;
+}
+
+/* Left half of the horizontal connector (all cols except first) */
+.tree-col:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 2px;
+  background: #7cbea0;
+}
+
+/* Right half of the horizontal connector (all cols except last) */
+.tree-col:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 2px;
+  background: #7cbea0;
+}
+
+/* Single child → no horizontal connector needed */
+.tree-col:only-child::before,
+.tree-col:only-child::after {
+  display: none;
+}
+
+/* Vertical stub from horizontal bar down to the child card */
+.tree-stub {
+  width: 2px;
+  height: 28px;
+  background: #7cbea0;
+  flex-shrink: 0;
+}
+
+/* Vertical line from a parent card down to its children row */
+.tree-drop {
+  width: 2px;
+  height: 28px;
+  background: #7cbea0;
+  flex-shrink: 0;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #f0f7f3; }
