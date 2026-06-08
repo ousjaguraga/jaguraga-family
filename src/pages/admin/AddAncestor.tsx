@@ -198,7 +198,7 @@ export default function AddAncestor() {
             </div>
             <div>
               <label className="label">Birthplace</label>
-              <input className="input" placeholder="e.g. Susuwol, Gambia" value={form.birthPlace} onChange={field('birthPlace')} />
+              <input className="input" placeholder="e.g. Suduwol, Gambia" value={form.birthPlace} onChange={field('birthPlace')} />
             </div>
           </div>
 

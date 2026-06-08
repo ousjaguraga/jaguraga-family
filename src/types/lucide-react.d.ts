@@ -31,4 +31,7 @@ declare module 'lucide-react' {
   export const Save:        LucideIcon;
   export const PlusCircle:  LucideIcon;
   export const Search:      LucideIcon;
+  export const ArrowRight:  LucideIcon;
+  export const ChevronDown: LucideIcon;
+  export const Image:       LucideIcon;
 }

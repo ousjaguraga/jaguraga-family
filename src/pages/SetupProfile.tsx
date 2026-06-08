@@ -181,7 +181,7 @@ export default function SetupProfile() {
             </div>
             <div>
               <label className="label">Birthplace / hometown</label>
-              <input className="input" placeholder="e.g. Susuwol, Gambia" value={form.birthPlace} onChange={field('birthPlace')} />
+              <input className="input" placeholder="e.g. Suduwol, Gambia" value={form.birthPlace} onChange={field('birthPlace')} />
             </div>
           </div>
 

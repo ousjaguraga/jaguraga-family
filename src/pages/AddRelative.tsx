@@ -197,7 +197,7 @@ export default function AddRelative() {
           <div>
             <label className="label">Birthplace</label>
             <input className="input" value={form.birthPlace} onChange={field('birthPlace')}
-              placeholder="e.g. Susuwol, Gambia" />
+              placeholder="e.g. Suduwol, Gambia" />
           </div>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
