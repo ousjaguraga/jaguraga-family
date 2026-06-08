@@ -13,6 +13,7 @@ import SetupProfile  from './pages/SetupProfile';
 import AddSibling    from './pages/AddSibling';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AddAncestor   from './pages/admin/AddAncestor';
+import AddRelative   from './pages/AddRelative';
 
 export default function App() {
   return (
@@ -41,6 +42,9 @@ export default function App() {
         } />
         <Route path="/add-sibling/:id" element={
           <ProtectedRoute><AddSibling /></ProtectedRoute>
+        } />
+        <Route path="/add-relative/:personId/:role" element={
+          <ProtectedRoute><AddRelative /></ProtectedRoute>
         } />
 
         {/* Admin only */}

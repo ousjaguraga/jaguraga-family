@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getUrl } from 'aws-amplify/storage';
-import { Loader2, Calendar, MapPin, Edit, Trash2, Users, ArrowLeft } from 'lucide-react';
+import { Loader2, Calendar, MapPin, Edit, Trash2, Users, ArrowLeft, UserPlus } from 'lucide-react';
 import { usePersonById, getSiblings, deletePerson } from '../hooks/useFamily';
 import { useAllPersons } from '../hooks/useFamily';
 import { useAuth } from '../context/AuthContext';
@@ -156,64 +156,80 @@ export default function PersonDetail() {
       {/* Relationships */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Parents */}
-        {(father || mother) && (
-          <div className="card">
-            <h2 className="font-serif text-lg font-semibold text-gray-900 mb-4">Parents</h2>
-            <div className="space-y-3">
-              {father && <MiniPersonLink person={father} label="Father" />}
-              {mother && <MiniPersonLink person={mother} label="Mother" />}
-            </div>
+        <div className="card">
+          <h2 className="font-serif text-lg font-semibold text-gray-900 mb-3">Parents</h2>
+          <div className="space-y-2">
+            {father
+              ? <MiniPersonLink person={father} label="Father" />
+              : canEdit && (
+                <AddRelativeButton to={`/add-relative/${person.id}/father`} label="Add father" />
+              )
+            }
+            {mother
+              ? <MiniPersonLink person={mother} label="Mother" />
+              : canEdit && (
+                <AddRelativeButton to={`/add-relative/${person.id}/mother`} label="Add mother" />
+              )
+            }
+            {!father && !mother && !canEdit && (
+              <p className="text-sm text-gray-400">No parents linked.</p>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Children */}
+        <div className="card">
+          <h2 className="font-serif text-lg font-semibold text-gray-900 mb-3">
+            Children {children.length > 0 && `(${children.length})`}
+          </h2>
+          <div className="space-y-2">
+            {children.map(c => <MiniPersonLink key={c.id} person={c} />)}
+            {canEdit && (
+              <AddRelativeButton to={`/add-relative/${person.id}/child`} label="Add child" />
+            )}
+            {children.length === 0 && !canEdit && (
+              <p className="text-sm text-gray-400">No children linked.</p>
+            )}
+          </div>
+        </div>
 
         {/* Spouse */}
         {spouse && (
           <div className="card">
-            <h2 className="font-serif text-lg font-semibold text-gray-900 mb-4">Spouse</h2>
+            <h2 className="font-serif text-lg font-semibold text-gray-900 mb-3">Spouse</h2>
             <MiniPersonLink person={spouse} label="Spouse" />
           </div>
         )}
 
-        {/* Children */}
-        {children.length > 0 && (
-          <div className="card">
-            <h2 className="font-serif text-lg font-semibold text-gray-900 mb-4">
-              Children ({children.length})
-            </h2>
-            <div className="space-y-2">
-              {children.map(c => <MiniPersonLink key={c.id} person={c} />)}
-            </div>
-          </div>
-        )}
-
         {/* Siblings */}
-        {siblingPersons.length > 0 && (
-          <div className="card">
-            <h2 className="font-serif text-lg font-semibold text-gray-900 mb-4">
-              Siblings ({siblingPersons.length})
-            </h2>
-            <div className="space-y-2">
-              {siblingPersons.map(s => <MiniPersonLink key={s.id} person={s} />)}
-            </div>
+        <div className="card">
+          <h2 className="font-serif text-lg font-semibold text-gray-900 mb-3">
+            Siblings {siblingPersons.length > 0 && `(${siblingPersons.length})`}
+          </h2>
+          <div className="space-y-2">
+            {siblingPersons.map(s => <MiniPersonLink key={s.id} person={s} />)}
             {canEdit && (
-              <Link to={`/add-sibling/${person.id}`} className="mt-3 text-sm text-burgundy-700 hover:underline block">
-                + Add sibling
-              </Link>
+              <AddRelativeButton to={`/add-sibling/${person.id}`} label="Add sibling" />
+            )}
+            {siblingPersons.length === 0 && !canEdit && (
+              <p className="text-sm text-gray-400">No siblings linked.</p>
             )}
           </div>
-        )}
-
-        {/* Add sibling if none */}
-        {siblingPersons.length === 0 && canEdit && (
-          <div className="card border-dashed border-gray-300 bg-gray-50 text-center py-8">
-            <p className="text-gray-400 text-sm mb-3">No siblings linked yet.</p>
-            <Link to={`/add-sibling/${person.id}`} className="btn-secondary text-sm py-1.5 px-4">
-              + Add Sibling
-            </Link>
-          </div>
-        )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function AddRelativeButton({ to, label }: { to: string; label: string }) {
+  return (
+    <Link to={to}
+      className="flex items-center gap-2 text-sm text-gray-400 hover:text-burgundy-700
+        border border-dashed border-gray-200 hover:border-burgundy-400
+        rounded-lg px-3 py-2 transition-colors w-full">
+      <UserPlus className="w-3.5 h-3.5" />
+      {label}
+    </Link>
   );
 }
 
