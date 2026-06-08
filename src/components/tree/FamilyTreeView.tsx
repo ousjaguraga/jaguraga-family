@@ -131,7 +131,15 @@ function HConnector() {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function FamilyTreeView({ persons }: Props) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId,   setSelectedId]   = useState<string | null>(null);
+  const [showAllSibs,  setShowAllSibs]  = useState(false);
+  const [showAllKids,  setShowAllKids]  = useState(false);
+
+  // Reset expanded state when the selected person changes
+  useEffect(() => {
+    setShowAllSibs(false);
+    setShowAllKids(false);
+  }, [selectedId]);
 
   const selected  = persons.find(p => p.id === selectedId) ?? null;
   const father    = selected?.fatherId  ? persons.find(p => p.id === selected.fatherId)  : null;
@@ -217,13 +225,20 @@ export default function FamilyTreeView({ persons }: Props) {
 
             {/* Person + siblings row */}
             <div className="flex items-center gap-3 flex-wrap justify-center">
-              {siblings.slice(0, 3).map(sib => (
+              {(showAllSibs ? siblings : siblings.slice(0, 3)).map(sib => (
                 <FocusNode key={sib.id} person={sib} onSelect={setSelectedId} />
               ))}
+
+              {/* "Show more" / "Show less" toggle */}
               {siblings.length > 3 && (
-                <span className="text-xs text-gray-400 self-center">
-                  +{siblings.length - 3} more
-                </span>
+                <button
+                  onClick={() => setShowAllSibs(v => !v)}
+                  className="self-center text-xs font-semibold text-burgundy-700 hover:text-burgundy-500
+                    bg-burgundy-50 hover:bg-burgundy-100 border border-burgundy-200
+                    px-3 py-1.5 rounded-xl transition-colors"
+                >
+                  {showAllSibs ? 'Show less' : `+${siblings.length - 3} more`}
+                </button>
               )}
 
               {/* Divider between siblings and selected */}
@@ -239,9 +254,19 @@ export default function FamilyTreeView({ persons }: Props) {
               <>
                 <VLine height={28} />
                 <div className="flex items-start gap-4 flex-wrap justify-center">
-                  {children.map(child => (
+                  {(showAllKids ? children : children.slice(0, 4)).map(child => (
                     <FocusNode key={child.id} person={child} onSelect={setSelectedId} />
                   ))}
+                  {children.length > 4 && (
+                    <button
+                      onClick={() => setShowAllKids(v => !v)}
+                      className="self-start mt-2 text-xs font-semibold text-burgundy-700 hover:text-burgundy-500
+                        bg-burgundy-50 hover:bg-burgundy-100 border border-burgundy-200
+                        px-3 py-1.5 rounded-xl transition-colors"
+                    >
+                      {showAllKids ? 'Show less' : `+${children.length - 4} more`}
+                    </button>
+                  )}
                 </div>
               </>
             )}
