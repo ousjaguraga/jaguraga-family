@@ -2,15 +2,13 @@ import { Link } from 'react-router-dom';
 import { getUrl } from 'aws-amplify/storage';
 import { useEffect, useState } from 'react';
 import { MapPin, Calendar } from 'lucide-react';
-import { Person, GENERATION_LABELS, type Generation } from '../types';
+import { Person, GENERATION_LABELS, type Gender, type Generation } from '../types';
 import { fullName, initials, formatDate } from '../utils/helpers';
 
-const GEN_GRADIENT: Record<Generation, string> = {
-  GREAT_GRANDPARENT: 'from-purple-500 to-violet-600',
-  GRANDPARENT:       'from-blue-500 to-cyan-600',
-  PARENT:            'from-emerald-500 to-teal-600',
-  CURRENT:           'from-gold-400 to-amber-500',
-  CHILD:             'from-orange-400 to-rose-500',
+const GENDER_GRADIENT: Record<Gender, string> = {
+  MALE:   'from-sky-500 to-blue-700',
+  FEMALE: 'from-rose-400 to-pink-700',
+  OTHER:  'from-slate-400 to-slate-600',
 };
 
 const GEN_BADGE: Record<Generation, string> = {
@@ -36,7 +34,7 @@ export default function PersonCard({ person, compact = false }: Props) {
       .catch(() => {});
   }, [person.photoKey]);
 
-  const gradient = GEN_GRADIENT[person.generation] ?? 'from-gray-400 to-gray-500';
+  const gradient = GENDER_GRADIENT[person.gender] ?? 'from-gray-400 to-gray-500';
   const badge    = GEN_BADGE[person.generation]    ?? 'bg-gray-100 text-gray-600';
 
   return (
@@ -89,7 +87,7 @@ export default function PersonCard({ person, compact = false }: Props) {
         )}
 
         {person.isDeceased && (
-          <span className="text-[10px] text-gray-400 font-medium">† Deceased</span>
+          <span className="text-[10px] text-gray-400 font-medium">رحمه الله</span>
         )}
       </div>
     </Link>

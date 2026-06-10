@@ -1,14 +1,103 @@
 import { Link } from 'react-router-dom';
-import { Loader2, PlusCircle, Trash2, Shield, Users } from 'lucide-react';
+import { Check, Loader2, PlusCircle, Trash2, Shield, UserPlus, X } from 'lucide-react';
 import { useAllPersons, deletePerson } from '../../hooks/useFamily';
-import { GENERATION_LABELS, GENERATION_ORDER, type Generation } from '../../types';
+import { approveJoinRequest, rejectJoinRequest, useJoinRequests } from '../../hooks/useRequests';
+import { GENERATION_LABELS, GENERATION_ORDER, type Generation, type JoinRequest, type NewFamilyProposal, type Person } from '../../types';
 import { fullName } from '../../utils/helpers';
 import { useState } from 'react';
 
+// ── Join request review card ──────────────────────────────────────────────
+function RequestCard({ req, persons, onDone }: {
+  req: JoinRequest;
+  persons: Person[];
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const requester = persons.find(p => p.id === req.personId);
+  const father = persons.find(p => p.id === req.fatherId);
+  const mother = persons.find(p => p.id === req.motherId);
+  const spouse = persons.find(p => p.id === req.spouseId);
+  const proposal = req.newFamilyJson ? JSON.parse(req.newFamilyJson) as NewFamilyProposal : null;
+
+  async function act(kind: 'approve' | 'reject') {
+    setError(null);
+    if (kind === 'reject') {
+      const note = window.prompt('Why is this request declined? (shown to the member, optional)') ?? '';
+      setBusy('reject');
+      try { await rejectJoinRequest(req.id, note); onDone(); }
+      catch (e) { setError(e instanceof Error ? e.message : 'Failed'); }
+      finally { setBusy(null); }
+      return;
+    }
+    setBusy('approve');
+    try { await approveJoinRequest(req); onDone(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed'); }
+    finally { setBusy(null); }
+  }
+
+  return (
+    <div className="card border-l-4 border-l-gold-400">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900">
+            {requester ? (
+              <Link to={`/person/${requester.id}`} className="hover:underline">{fullName(requester)}</Link>
+            ) : (req.requesterName ?? 'Unknown member')}
+            <span className="ml-2 rounded bg-gold-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold-700">
+              {req.type === 'NEW_FAMILY' ? 'New family' : 'Link request'}
+            </span>
+          </p>
+          <div className="mt-2 space-y-0.5 text-sm text-gray-600">
+            {req.type === 'LINK_EXISTING' ? (
+              <>
+                {father && <p>Father → <Link className="font-medium hover:underline" to={`/person/${father.id}`}>{fullName(father)}</Link></p>}
+                {mother && <p>Mother → <Link className="font-medium hover:underline" to={`/person/${mother.id}`}>{fullName(mother)}</Link></p>}
+                {spouse && <p>Spouse → <Link className="font-medium hover:underline" to={`/person/${spouse.id}`}>{fullName(spouse)}</Link></p>}
+              </>
+            ) : proposal && (
+              <>
+                {proposal.father?.firstName && <p>Create father: <span className="font-medium">{proposal.father.firstName} {proposal.father.lastName}</span></p>}
+                {proposal.mother?.firstName && <p>Create mother: <span className="font-medium">{proposal.mother.firstName} {proposal.mother.lastName}</span></p>}
+                <p className="text-xs text-gray-400">As {GENERATION_LABELS[proposal.generation]}s, married to each other, linked as the requester's parents.</p>
+              </>
+            )}
+            {req.message && <p className="mt-1 italic text-gray-500">“{req.message}”</p>}
+          </div>
+        </div>
+
+        <div className="flex flex-shrink-0 gap-2">
+          <button
+            onClick={() => act('approve')}
+            disabled={busy !== null}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {busy === 'approve' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Approve
+          </button>
+          <button
+            onClick={() => act('reject')}
+            disabled={busy !== null}
+            className="flex items-center gap-1.5 rounded-lg border-2 border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            {busy === 'reject' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+            Decline
+          </button>
+        </div>
+      </div>
+      {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { persons, isLoading, error, refresh } = useAllPersons();
+  const { requests, refresh: refreshRequests }  = useJoinRequests();
   const [deletingId, setDeletingId]             = useState<string | null>(null);
   const [genFilter, setGenFilter]               = useState<Generation | 'ALL'>('ALL');
+
+  const pendingRequests = requests.filter(r => r.status === 'PENDING');
 
   const ancestors = persons.filter(p => p.isAncestor);
   const filtered  = (genFilter === 'ALL' ? persons : persons.filter(p => p.generation === genFilter));
@@ -55,6 +144,33 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-500 mt-1">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Pending join requests */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <UserPlus className="w-5 h-5 text-gold-600" />
+          <h2 className="font-serif text-xl font-bold text-gray-900">Join Requests</h2>
+          {pendingRequests.length > 0 && (
+            <span className="rounded-full bg-gold-500 px-2 py-0.5 text-xs font-bold text-white">{pendingRequests.length}</span>
+          )}
+        </div>
+        {pendingRequests.length === 0 ? (
+          <div className="card py-6 text-center text-sm text-gray-400">
+            No pending requests — everyone who asked has been reviewed.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {pendingRequests.map(r => (
+              <RequestCard
+                key={r.id}
+                req={r}
+                persons={persons}
+                onDone={() => { refreshRequests(); refresh(); }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Filter */}
@@ -107,7 +223,7 @@ export default function AdminDashboard() {
                         <Link to={`/person/${p.id}`} className="hover:text-burgundy-700 hover:underline">
                           {fullName(p)}
                         </Link>
-                        {p.isDeceased && <span className="ml-1 text-gray-400 text-xs">†</span>}
+                        {p.isDeceased && <span className="ml-1 text-gray-400 text-xs">رحمه الله</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-500">{GENERATION_LABELS[p.generation]}</td>
                       <td className="px-4 py-3 text-gray-500 capitalize">{p.gender.toLowerCase()}</td>

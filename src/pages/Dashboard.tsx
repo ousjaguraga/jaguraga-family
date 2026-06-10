@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { TreePine, UserPlus, Shield, Loader2, ArrowRight, Users } from 'lucide-react';
+import { TreePine, UserPlus, Shield, ArrowRight, Users, Clock, CheckCircle2, XCircle, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAllPersons } from '../hooks/useFamily';
+import { useJoinRequests } from '../hooks/useRequests';
 import PersonCard from '../components/PersonCard';
 import HunterLogo from '../components/HunterLogo';
 import { GENERATION_ORDER } from '../types';
@@ -36,8 +37,12 @@ function ActionCard({ to, icon, title, desc, accent }: {
 }
 
 export default function Dashboard() {
-  const { userAttrs, isAdmin } = useAuth();
+  const { user, userAttrs, isAdmin } = useAuth();
   const { persons, isLoading } = useAllPersons();
+  const { requests } = useJoinRequests();
+
+  const me = persons.find(p => p.cognitoUserId === user?.userId) ?? null;
+  const myLatestRequest = requests.find(r => !me || r.personId === me.id) ?? null;
 
   const firstName = userAttrs['given_name'] ?? 'Family Member';
   const hour      = new Date().getHours();
@@ -70,6 +75,30 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* ── Join request status ────────────────────────────────────────── */}
+        {myLatestRequest && (
+          <Link to="/join-family" className={`flex items-center gap-3 rounded-2xl border px-5 py-4 transition hover:shadow-sm ${
+            myLatestRequest.status === 'PENDING'  ? 'border-gold-200 bg-gold-50' :
+            myLatestRequest.status === 'APPROVED' ? 'border-emerald-200 bg-emerald-50' :
+                                                    'border-red-200 bg-red-50'
+          }`}>
+            {myLatestRequest.status === 'PENDING'  && <Clock className="h-5 w-5 flex-shrink-0 text-gold-600" />}
+            {myLatestRequest.status === 'APPROVED' && <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />}
+            {myLatestRequest.status === 'REJECTED' && <XCircle className="h-5 w-5 flex-shrink-0 text-red-500" />}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900">
+                {myLatestRequest.status === 'PENDING'  && 'Your join request is waiting for admin approval'}
+                {myLatestRequest.status === 'APPROVED' && 'Your join request was approved — you’re in the tree!'}
+                {myLatestRequest.status === 'REJECTED' && 'Your join request was declined'}
+              </p>
+              {myLatestRequest.status === 'REJECTED' && myLatestRequest.adminNote && (
+                <p className="mt-0.5 truncate text-xs text-gray-500">Admin: “{myLatestRequest.adminNote}” — tap to try again</p>
+              )}
+            </div>
+            <ArrowRight className="h-4 w-4 flex-shrink-0 text-gray-300" />
+          </Link>
+        )}
+
         {/* ── Stats ──────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard value={persons.length}              label="Total members"      color="bg-burgundy-700 text-white" />
@@ -102,6 +131,13 @@ export default function Dashboard() {
               accent="bg-emerald-100"
               title="Add Yourself"
               desc="Create your tree entry"
+            />
+            <ActionCard
+              to="/join-family"
+              icon={<Heart className="w-5 h-5 text-rose-600" />}
+              accent="bg-rose-100"
+              title="Join the Family"
+              desc="Link yourself to your parents"
             />
             {isAdmin && (
               <ActionCard

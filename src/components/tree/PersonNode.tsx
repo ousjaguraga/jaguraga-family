@@ -42,17 +42,17 @@ export default function PersonNode({ person, highlight = false }: Props) {
 
       {/* Name */}
       <div className="text-center max-w-[90px]">
-        <p className="text-xs font-semibold text-gray-800 group-hover:text-burgundy-700 leading-tight truncate">
+        <p className="text-xs font-semibold leading-tight text-gray-800 group-hover:text-burgundy-700 whitespace-normal break-words">
           {person.firstName}
         </p>
-        <p className="text-xs text-gray-500 truncate">
+        <p className="text-xs text-gray-500 whitespace-normal break-words">
           {person.lastName}
         </p>
       </div>
 
       {/* Deceased indicator */}
       {person.isDeceased && (
-        <span className="text-xs text-gray-400">†</span>
+        <span className="text-xs text-gray-400">رحمه الله</span>
       )}
     </Link>
   );

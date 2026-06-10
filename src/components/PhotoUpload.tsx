@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { uploadData, getUrl } from 'aws-amplify/storage';
 import { Camera, Loader2 } from 'lucide-react';
 
@@ -14,30 +14,42 @@ export default function PhotoUpload({ currentKey, personId, onUploaded }: Props)
   const [error,      setError]      = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load existing photo on mount
-  useState(() => {
-    if (currentKey) {
-      getUrl({ path: currentKey })
-        .then(({ url }) => setPreview(url.toString()))
-        .catch(() => {});
-    }
-  });
+  // Load existing photo (useState's initializer is not a side-effect slot —
+  // this must be an effect, and it must react to currentKey changes)
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentKey) return;
+    getUrl({ path: currentKey })
+      .then(({ url }) => { if (!cancelled) setPreview(url.toString()); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [currentKey]);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setError(null);
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Photo is larger than 10 MB — please pick a smaller one.');
+      return;
+    }
+
     const objectUrl = URL.createObjectURL(file);
     setPreview(objectUrl);
 
-    const key = `photos/${personId}.${file.name.split('.').pop()}`;
+    const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'jpg';
+    const key = `photos/${personId}.${ext}`;
     setUploading(true);
     try {
       await uploadData({ path: key, data: file, options: { contentType: file.type } }).result;
       onUploaded(key);
     } catch (err) {
-      setError('Upload failed. Please try again.');
+      console.error('Photo upload failed:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`Upload failed: ${detail}`);
+      setPreview(null);
     } finally {
       setUploading(false);
     }

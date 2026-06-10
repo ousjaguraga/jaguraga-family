@@ -14,6 +14,7 @@ export interface Person {
   firstName:     string;
   lastName:      string;
   middleName?:   string | null;
+  nickname?:     string | null;
   birthDate?:    string | null;
   birthPlace?:   string | null;
   deathDate?:    string | null;
@@ -30,6 +31,34 @@ export interface Person {
   createdAt?:    string;
   updatedAt?:    string;
   owner?:        string | null;
+}
+
+export type JoinRequestType   = 'LINK_EXISTING' | 'NEW_FAMILY';
+export type JoinRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/** Names proposed for parents who aren't in the tree yet. */
+export interface NewFamilyProposal {
+  father?: { firstName: string; lastName: string; nickname?: string };
+  mother?: { firstName: string; lastName: string; nickname?: string };
+  /** generation the new parents belong to */
+  generation: Generation;
+}
+
+export interface JoinRequest {
+  id:             string;
+  personId:       string;
+  requesterName?: string | null;
+  type:           JoinRequestType;
+  fatherId?:      string | null;
+  motherId?:      string | null;
+  spouseId?:      string | null;
+  newFamilyJson?: string | null;
+  message?:       string | null;
+  status:         JoinRequestStatus;
+  adminNote?:     string | null;
+  createdAt?:     string;
+  updatedAt?:     string;
+  owner?:         string | null;
 }
 
 export interface SiblingRelationship {

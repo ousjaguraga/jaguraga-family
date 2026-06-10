@@ -2,8 +2,37 @@ import { useState, useEffect, useCallback } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import type { Person, SiblingRelationship } from '../types';
+import outputs from '../../amplify_outputs.json';
 
 const client = generateClient<Schema>();
+
+// Fields the DEPLOYED backend actually knows about. Newer code may add fields
+// (e.g. nickname) before `npx ampx sandbox` redeploys — sending those would
+// fail every mutation with "field not defined for input object type".
+const deployedPersonFields: Set<string> | null = (() => {
+  try {
+    const fields = (outputs as {
+      data?: { model_introspection?: { models?: { Person?: { fields?: Record<string, unknown> } } } };
+    }).data?.model_introspection?.models?.Person?.fields;
+    return fields ? new Set(Object.keys(fields)) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function sanitizePersonInput<T extends Record<string, unknown>>(input: T): T {
+  if (!deployedPersonFields) return input;
+  const dropped = Object.keys(input).filter(k => !deployedPersonFields.has(k));
+  if (dropped.length) {
+    console.warn(
+      `Backend schema is out of date — dropping unsupported field(s): ${dropped.join(', ')}. ` +
+      'Run `npx ampx sandbox` to deploy the latest schema.',
+    );
+  }
+  return Object.fromEntries(
+    Object.entries(input).filter(([k]) => deployedPersonFields.has(k)),
+  ) as T;
+}
 
 function mapPerson(raw: Schema['Person']['type']): Person {
   return {
@@ -11,6 +40,7 @@ function mapPerson(raw: Schema['Person']['type']): Person {
     firstName:     raw.firstName,
     lastName:      raw.lastName,
     middleName:    raw.middleName ?? null,
+    nickname:      raw.nickname ?? null,
     birthDate:     raw.birthDate ?? null,
     birthPlace:    raw.birthPlace ?? null,
     deathDate:     raw.deathDate ?? null,
@@ -79,16 +109,68 @@ export function usePersonById(id: string | undefined) {
   return { person, isLoading, error };
 }
 
+async function tryGetPerson(id: string): Promise<Person | null> {
+  try {
+    const { data, errors } = await client.models.Person.get({ id });
+    if (errors?.length || !data) return null;
+    return mapPerson(data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keep spouse links reciprocal.
+ * The `spouseId` field acts as the current spouse pointer; historical/parallel
+ * partner relationships are still inferred via shared children in UI/graph.
+ * Best-effort only: failures here should never block the main save flow.
+ */
+async function trySetMutualSpouse(aId: string, bId: string): Promise<void> {
+  if (!aId || !bId || aId === bId) return;
+
+  try {
+    const [a, b] = await Promise.all([tryGetPerson(aId), tryGetPerson(bId)]);
+    if (!a || !b) return;
+
+    const updates: Promise<unknown>[] = [];
+    if (a.spouseId !== bId) {
+      updates.push(client.models.Person.update({ id: aId, spouseId: bId } as Parameters<typeof client.models.Person.update>[0]));
+    }
+    if (b.spouseId !== aId) {
+      updates.push(client.models.Person.update({ id: bId, spouseId: aId } as Parameters<typeof client.models.Person.update>[0]));
+    }
+    if (updates.length) await Promise.all(updates);
+  } catch {
+    // best-effort; no-op
+  }
+}
+
+async function tryAutoLinkSpouses(person: Pick<Person, 'id' | 'spouseId' | 'fatherId' | 'motherId'>): Promise<void> {
+  if (person.spouseId) {
+    await trySetMutualSpouse(person.id, person.spouseId);
+  }
+  if (person.fatherId && person.motherId) {
+    await trySetMutualSpouse(person.fatherId, person.motherId);
+  }
+}
+
 export async function createPerson(input: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'owner'>): Promise<Person> {
-  const { data, errors } = await client.models.Person.create(input as Parameters<typeof client.models.Person.create>[0]);
+  const safe = sanitizePersonInput(input as Record<string, unknown>);
+  const { data, errors } = await client.models.Person.create(safe as Parameters<typeof client.models.Person.create>[0]);
   if (errors?.length) throw new Error(errors[0].message);
-  return mapPerson(data!);
+  const saved = mapPerson(data!);
+  await tryAutoLinkSpouses(saved);
+  return saved;
 }
 
 export async function updatePerson(id: string, input: Partial<Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'owner'>>): Promise<Person> {
-  const { data, errors } = await client.models.Person.update({ id, ...input } as Parameters<typeof client.models.Person.update>[0]);
+  const safe = sanitizePersonInput({ id, ...input } as Record<string, unknown>);
+  const { data, errors } = await client.models.Person.update(safe as Parameters<typeof client.models.Person.update>[0]);
   if (errors?.length) throw new Error(errors[0].message);
-  return mapPerson(data!);
+  const saved = mapPerson(data!);
+  const latest = (await tryGetPerson(id)) ?? saved;
+  await tryAutoLinkSpouses(latest);
+  return saved;
 }
 
 export async function deletePerson(id: string): Promise<void> {

@@ -14,6 +14,7 @@ import AddSibling    from './pages/AddSibling';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AddAncestor   from './pages/admin/AddAncestor';
 import AddRelative   from './pages/AddRelative';
+import JoinFamily    from './pages/JoinFamily';
 
 export default function App() {
   return (
@@ -39,6 +40,9 @@ export default function App() {
         } />
         <Route path="/edit-person/:id" element={
           <ProtectedRoute><SetupProfile /></ProtectedRoute>
+        } />
+        <Route path="/join-family" element={
+          <ProtectedRoute><JoinFamily /></ProtectedRoute>
         } />
         <Route path="/add-sibling/:id" element={
           <ProtectedRoute><AddSibling /></ProtectedRoute>

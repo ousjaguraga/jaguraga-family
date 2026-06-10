@@ -45,7 +45,7 @@ export default function Navbar() {
 
   return (
     <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300
-      ${scrolled ? 'bg-burgundy-900 shadow-xl shadow-black/20' : 'bg-burgundy-900/96 backdrop-blur-md'}`}
+      ${scrolled ? 'bg-burgundy-900 shadow-xl shadow-black/20' : 'bg-burgundy-900/95 backdrop-blur-md'}`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -67,6 +67,7 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-8">
               <NavLink to="/dashboard"   className={link}>Dashboard</NavLink>
               <NavLink to="/family-tree" className={link}>Family Tree</NavLink>
+              <NavLink to="/join-family" className={link}>Join</NavLink>
               <NavLink to="/my-profile"  className={link}>My Profile</NavLink>
               {isAdmin && (
                 <NavLink to="/admin" className={link}>
@@ -84,7 +85,7 @@ export default function Navbar() {
               <div className="relative" data-user-menu>
                 <button
                   onClick={() => setUserMenu(m => !m)}
-                  className="flex items-center gap-2.5 hover:bg-white/8 rounded-xl px-2.5 py-2 transition-colors"
+                  className="flex items-center gap-2.5 hover:bg-white/10 rounded-xl px-2.5 py-2 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0
                     bg-gradient-to-br from-gold-400 to-gold-600 ring-2 ring-gold-400/30">
@@ -145,7 +146,7 @@ export default function Navbar() {
 
       {/* ── Mobile drawer ── */}
       <div className={`md:hidden transition-all duration-300 overflow-hidden ${open ? 'max-h-[500px]' : 'max-h-0'}`}>
-        <div className="bg-[#071e14] border-t border-white/8 px-4 pt-4 pb-8 space-y-1">
+        <div className="bg-[#071e14] border-t border-white/10 px-4 pt-4 pb-8 space-y-1">
           {user ? (
             <>
               <div className="flex items-center gap-3 p-3.5 mb-3 bg-white/5 rounded-2xl">
@@ -162,6 +163,7 @@ export default function Navbar() {
               {[
                 { to: '/dashboard',   label: 'Dashboard' },
                 { to: '/family-tree', label: 'Family Tree' },
+                { to: '/join-family', label: 'Join the Family' },
                 { to: '/my-profile',  label: 'My Profile' },
                 ...(isAdmin ? [{ to: '/admin', label: 'Admin Panel' }] : []),
               ].map(item => (
@@ -174,7 +176,7 @@ export default function Navbar() {
                 </NavLink>
               ))}
 
-              <div className="pt-3 mt-2 border-t border-white/8">
+              <div className="pt-3 mt-2 border-t border-white/10">
                 <button onClick={handleSignOut}
                   className="flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 rounded-xl w-full">
                   <LogOut className="w-4 h-4" />Sign out

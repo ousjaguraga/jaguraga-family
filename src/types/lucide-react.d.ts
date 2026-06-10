@@ -36,4 +36,13 @@ declare module 'lucide-react' {
   export const Image:       LucideIcon;
   export const LayoutGrid:  LucideIcon;
   export const GitBranch:   LucideIcon;
+  export const ArrowUpRight: LucideIcon;
+  export const ChevronUp:    LucideIcon;
+  export const ChevronRight: LucideIcon;
+  export const Check:        LucideIcon;
+  export const CheckCircle2: LucideIcon;
+  export const Clock:        LucideIcon;
+  export const Send:         LucideIcon;
+  export const XCircle:      LucideIcon;
+  export const Download:     LucideIcon;
 }

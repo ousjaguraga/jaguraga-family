@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, ArrowLeft, UserPlus } from 'lucide-react';
 import { usePersonById, useAllPersons, createPerson, updatePerson } from '../hooks/useFamily';
-import { fullName, generationIndex } from '../utils/helpers';
+import PersonPicker from '../components/PersonPicker';
+import { fullName, generationAbove, generationBelow, generationIndex } from '../utils/helpers';
 import { GENERATION_ORDER, type Gender, type Generation } from '../types';
 
 type Role = 'father' | 'mother' | 'child';
@@ -54,13 +55,13 @@ export default function AddRelative() {
       setForm(f => ({ ...f, [k]: e.target.value }));
   }
 
-  // Candidates for linking an existing person
-  const candidates = persons.filter(p => {
-    if (p.id === personId) return false;
-    if (safeRole === 'father') return p.gender === 'MALE';
-    if (safeRole === 'mother') return p.gender === 'FEMALE';
-    return true; // child — any gender
-  });
+  // Scope for linking an existing person: parents live one generation above,
+  // children one generation below the person we're adding a relative for.
+  const linkGender: Gender | undefined =
+    safeRole === 'father' ? 'MALE' : safeRole === 'mother' ? 'FEMALE' : undefined;
+  const linkGeneration = person
+    ? (safeRole === 'child' ? generationBelow(person.generation) : generationAbove(person.generation))
+    : null;
 
   async function handleCreateNew(e: React.FormEvent) {
     e.preventDefault();
@@ -212,17 +213,16 @@ export default function AddRelative() {
         </form>
       ) : (
         <form onSubmit={handleLinkExisting} className="card space-y-4">
-          <div>
-            <label className="label">Select from existing members</label>
-            <select className="input" value={existingId} onChange={e => setExistingId(e.target.value)} required>
-              <option value="">— Choose a person —</option>
-              {candidates.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
+          <PersonPicker
+            label={`Find the ${roleLabel.toLowerCase()}`}
+            persons={persons}
+            value={existingId}
+            onChange={setExistingId}
+            excludeIds={personId ? [personId] : []}
+            filterGender={linkGender}
+            generation={linkGeneration}
+            placeholder={`Search for ${fullName(person)}'s ${roleLabel.toLowerCase()}…`}
+          />
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 

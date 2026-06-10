@@ -55,6 +55,18 @@ export function generationIndex(gen: Generation): number {
   return GENERATION_ORDER.indexOf(gen);
 }
 
+/** One generation older (where a person's parents live), or null at the top. */
+export function generationAbove(gen: Generation): Generation | null {
+  const idx = generationIndex(gen);
+  return idx > 0 ? GENERATION_ORDER[idx - 1] : null;
+}
+
+/** One generation younger (where a person's children live), or null at the bottom. */
+export function generationBelow(gen: Generation): Generation | null {
+  const idx = generationIndex(gen);
+  return idx < GENERATION_ORDER.length - 1 ? GENERATION_ORDER[idx + 1] : null;
+}
+
 export function sortByGeneration(persons: Person[]): Person[] {
   return [...persons].sort((a, b) => generationIndex(a.generation) - generationIndex(b.generation));
 }

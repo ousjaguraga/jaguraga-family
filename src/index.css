@@ -119,66 +119,88 @@
 }
 
 /* ── Family Tree connector lines ─────────────────────────────────────────── */
+.family-tree-canvas {
+  max-height: calc(100vh - 280px);
+  min-height: 520px;
+  scrollbar-color: #7cbea0 #f7f3ea;
+  scrollbar-gutter: stable;
+}
 
-/* Children sit in a horizontal flex row */
+.family-tree-canvas::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.family-tree-canvas::-webkit-scrollbar-track {
+  background: #f7f3ea;
+  border-radius: 999px;
+}
+
+.family-tree-canvas::-webkit-scrollbar-thumb {
+  background: #7cbea0;
+  border: 2px solid #f7f3ea;
+  border-radius: 999px;
+}
+
 .tree-row {
+  align-items: flex-start;
   display: flex;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-/* Each child column centres its subtree */
 .tree-col {
+  align-items: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0 10px;
+  padding: 0 18px;
   position: relative;
 }
 
-/* Left half of the horizontal connector (all cols except first) */
-.tree-col:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 2px;
-  background: #7cbea0;
-}
-
-/* Right half of the horizontal connector (all cols except last) */
+.tree-col:not(:first-child)::before,
 .tree-col:not(:last-child)::after {
+  background: linear-gradient(90deg, #b7d8c6, #5f9f7e);
   content: '';
+  height: 2px;
   position: absolute;
   top: 0;
-  right: 0;
   width: 50%;
-  height: 2px;
-  background: #7cbea0;
 }
 
-/* Single child → no horizontal connector needed */
+.tree-col:not(:first-child)::before {
+  left: 0;
+}
+
+.tree-col:not(:last-child)::after {
+  right: 0;
+}
+
 .tree-col:only-child::before,
 .tree-col:only-child::after {
   display: none;
 }
 
-/* Vertical stub from horizontal bar down to the child card */
-.tree-stub {
-  width: 2px;
-  height: 28px;
-  background: #7cbea0;
+.tree-stub,
+.tree-drop {
+  background: linear-gradient(180deg, #b7d8c6, #5f9f7e);
   flex-shrink: 0;
+  width: 2px;
 }
 
-/* Vertical line from a parent card down to its children row */
+.tree-stub {
+  height: 34px;
+}
+
 .tree-drop {
-  width: 2px;
-  height: 28px;
-  background: #7cbea0;
-  flex-shrink: 0;
+  height: 36px;
+}
+
+@media (min-width: 1024px) {
+  .tree-col {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */

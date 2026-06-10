@@ -4,6 +4,8 @@ import { Loader2, Save, ArrowLeft } from 'lucide-react';
 import { createPerson, updatePerson, useAllPersons } from '../../hooks/useFamily';
 import { usePersonById } from '../../hooks/useFamily';
 import PhotoUpload from '../../components/PhotoUpload';
+import PersonPicker from '../../components/PersonPicker';
+import { generationAbove } from '../../utils/helpers';
 import { GENERATION_LABELS, GENERATION_ORDER, type Generation, type Gender, type Person } from '../../types';
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
@@ -23,6 +25,7 @@ export default function AddAncestor() {
     firstName:  '',
     lastName:   'Jaguraga',
     middleName: '',
+    nickname:   '',
     gender:     'MALE' as Gender,
     birthDate:  '',
     deathDate:  '',
@@ -46,6 +49,7 @@ export default function AddAncestor() {
       firstName:  person.firstName,
       lastName:   person.lastName,
       middleName: person.middleName ?? '',
+      nickname:   person.nickname ?? '',
       gender:     person.gender,
       birthDate:  person.birthDate ?? '',
       deathDate:  person.deathDate ?? '',
@@ -70,14 +74,6 @@ export default function AddAncestor() {
     };
   }
 
-  // Ancestors that could be parents of this person (older generations)
-  const parentCandidates = persons.filter(p => {
-    if (p.id === id) return false;
-    const genIdx   = GENERATION_ORDER.indexOf(form.generation);
-    const candIdx  = GENERATION_ORDER.indexOf(p.generation);
-    return candIdx < genIdx; // strictly older generation
-  });
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -88,6 +84,7 @@ export default function AddAncestor() {
         firstName:     form.firstName.trim(),
         lastName:      form.lastName.trim(),
         middleName:    form.middleName.trim() || null,
+        nickname:      form.nickname.trim() || null,
         gender:        form.gender,
         birthDate:     form.birthDate || null,
         deathDate:     form.deathDate || null,
@@ -167,6 +164,10 @@ export default function AddAncestor() {
               <input className="input" value={form.middleName} onChange={field('middleName')} />
             </div>
             <div>
+              <label className="label">Nickname</label>
+              <input className="input" placeholder="e.g. Jagu" value={form.nickname} onChange={field('nickname')} />
+            </div>
+            <div>
               <label className="label">Last name *</label>
               <input className="input" value={form.lastName} onChange={field('lastName')} required />
             </div>
@@ -241,41 +242,37 @@ export default function AddAncestor() {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Father</label>
-              <select className="input" value={form.fatherId} onChange={field('fatherId')}>
-                <option value="">— None —</option>
-                {parentCandidates.filter(p => p.gender === 'MALE').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName} ({GENERATION_LABELS[p.generation]})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label">Mother</label>
-              <select className="input" value={form.motherId} onChange={field('motherId')}>
-                <option value="">— None —</option>
-                {parentCandidates.filter(p => p.gender === 'FEMALE').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName} ({GENERATION_LABELS[p.generation]})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <PersonPicker
+              label="Father"
+              persons={persons}
+              value={form.fatherId}
+              onChange={pid => setForm(f => ({ ...f, fatherId: pid }))}
+              excludeIds={id ? [id] : []}
+              filterGender="MALE"
+              generation={generationAbove(form.generation)}
+              placeholder="Search for the father…"
+            />
+            <PersonPicker
+              label="Mother"
+              persons={persons}
+              value={form.motherId}
+              onChange={pid => setForm(f => ({ ...f, motherId: pid }))}
+              excludeIds={id ? [id] : []}
+              filterGender="FEMALE"
+              generation={generationAbove(form.generation)}
+              placeholder="Search for the mother…"
+            />
           </div>
 
-          <div>
-            <label className="label">Spouse</label>
-            <select className="input" value={form.spouseId} onChange={field('spouseId')}>
-              <option value="">— None —</option>
-              {persons.filter(p => p.id !== id).map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName} ({GENERATION_LABELS[p.generation]})
-                </option>
-              ))}
-            </select>
-          </div>
+          <PersonPicker
+            label="Spouse"
+            persons={persons}
+            value={form.spouseId}
+            onChange={pid => setForm(f => ({ ...f, spouseId: pid }))}
+            excludeIds={id ? [id] : []}
+            generation={form.generation}
+            placeholder="Search for the spouse…"
+          />
         </div>
 
         {error && (
