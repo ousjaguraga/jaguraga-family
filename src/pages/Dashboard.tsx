@@ -129,8 +129,8 @@ export default function Dashboard() {
               to="/setup-profile"
               icon={<UserPlus className="w-5 h-5 text-emerald-700" />}
               accent="bg-emerald-100"
-              title="Add Yourself"
-              desc="Create your tree entry"
+              title="Find Yourself"
+              desc="Link or create your tree entry"
             />
             <ActionCard
               to="/join-family"

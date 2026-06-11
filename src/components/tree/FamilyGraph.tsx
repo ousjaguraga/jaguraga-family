@@ -114,16 +114,18 @@ export function makeLookups(persons: Person[]) {
     if (!child) return null;
     return byId.get(child.fatherId === p.id ? child.motherId! : child.fatherId!) ?? null;
   };
-  // ALL partners — spouse links plus every co-parent of a shared child.
-  // Supports multiple marriages (one husband, several wives, and vice versa).
+  // ALL family partners — explicit spouse links in either direction plus every
+  // co-parent of a shared child.
   const partnersOf = (p: Person): Person[] => {
     const ids: string[] = [];
     const seen = new Set<string>([p.id]);
     const push = (id?: string | null) => {
       if (has(id) && !seen.has(id)) { seen.add(id); ids.push(id); }
     };
-    const s = spouseOf(p);
-    if (s) push(s.id);
+    push(p.spouseId);
+    persons.forEach(q => {
+      if (q.spouseId === p.id) push(q.id);
+    });
     persons.forEach(c => {
       if (c.fatherId === p.id) push(c.motherId);
       else if (c.motherId === p.id) push(c.fatherId);
@@ -138,50 +140,25 @@ export interface FamilyUnit {
   id:        string;
   parentIds: string[];   // 1–2 heads of the family
   childIds:  string[];
-  memberIds: string[];   // parents + children + children's partners
+  memberIds: string[];   // exact parents + children in this family
   label:     string;
   generation: Generation;
 }
 
 export function buildFamilies(persons: Person[]): FamilyUnit[] {
-  const { byId, has, spouseOf, partnerOf } = makeLookups(persons);
+  const { byId, has } = makeLookups(persons);
 
-  // A family is defined by parenthood: every person who is the child of a
-  // father and/or mother puts that couple (or single parent) on the map.
+  // A child's exact recorded parents define the family. Never infer a missing
+  // parent from spouseId: one person can head several different families.
   const byParents = new Map<string, { parentIds: Set<string>; childIds: string[] }>();
   persons.forEach(c => {
     const ps = [c.fatherId, c.motherId].filter(has) as string[];
     if (!ps.length) return;
     const set = new Set(ps);
-    if (set.size === 1) {
-      const partner = partnerOf(byId.get(ps[0])!);
-      if (partner) set.add(partner.id);
-    }
     const key = [...set].sort().join('|');
     const u = byParents.get(key) ?? { parentIds: set, childIds: [] };
     u.childIds.push(c.id);
     byParents.set(key, u);
-  });
-
-  // Fold single-parent units into a couple unit containing that parent.
-  const merged: Array<{ parentIds: Set<string>; childIds: string[] }> = [];
-  [...byParents.values()]
-    .sort((a, b) => b.parentIds.size - a.parentIds.size)
-    .forEach(e => {
-      const host = merged.find(m => [...e.parentIds].every(id => m.parentIds.has(id)));
-      if (host) host.childIds.push(...e.childIds);
-      else merged.push({ parentIds: new Set(e.parentIds), childIds: [...e.childIds] });
-    });
-
-  // Married couples without (recorded) children are families too.
-  const covered = new Set(merged.map(m => [...m.parentIds].sort().join('|')));
-  persons.forEach(p => {
-    const s = spouseOf(p);
-    if (!s) return;
-    const key = [p.id, s.id].sort().join('|');
-    if (covered.has(key)) return;
-    covered.add(key);
-    merged.push({ parentIds: new Set([p.id, s.id]), childIds: [] });
   });
 
   const sortKids = (ids: string[]) =>
@@ -190,19 +167,25 @@ export function buildFamilies(persons: Person[]): FamilyUnit[] {
       return birthTime(pa) - birthTime(pb) || (pa.firstName || '').localeCompare(pb.firstName || '');
     });
 
-  const units: FamilyUnit[] = merged.map(m => {
+  // An explicit spouse connection is also a family, even when the couple has
+  // no recorded children. It stays separate from single-parent child groups.
+  const covered = new Set(byParents.keys());
+  persons.forEach(p => {
+    if (!has(p.spouseId)) return;
+    const parentIds = new Set([p.id, p.spouseId!]);
+    const key = [...parentIds].sort().join('|');
+    if (covered.has(key)) return;
+    covered.add(key);
+    byParents.set(key, { parentIds, childIds: [] });
+  });
+
+  const units: FamilyUnit[] = [...byParents.values()].map(m => {
     const parentIds = [...m.parentIds].sort((a, b) => {
       const ga = byId.get(a)!.gender, gb = byId.get(b)!.gender;
       if (ga !== gb) return ga === 'MALE' ? -1 : gb === 'MALE' ? 1 : 0;
       return a.localeCompare(b);
     });
     const childIds = sortKids(m.childIds);
-    const memberIds = new Set<string>(parentIds);
-    childIds.forEach(cid => {
-      memberIds.add(cid);
-      const s = partnerOf(byId.get(cid)!);
-      if (s) memberIds.add(s.id);
-    });
     const heads = parentIds.map(id => byId.get(id)!);
     const label = heads.length === 2
       ? `${heads[0].firstName} & ${heads[1].firstName} ${heads[0].lastName}`
@@ -214,7 +197,7 @@ export function buildFamilies(persons: Person[]): FamilyUnit[] {
       id: parentIds.join('|'),
       parentIds,
       childIds,
-      memberIds: [...memberIds],
+      memberIds: [...parentIds, ...childIds],
       label,
       generation,
     };

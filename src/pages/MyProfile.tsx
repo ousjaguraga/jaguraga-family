@@ -30,7 +30,7 @@ export default function MyProfile() {
         </div>
         <Link to="/setup-profile" className="btn-primary flex items-center gap-2 text-sm">
           <Edit className="w-4 h-4" />
-          {myPerson ? 'Edit' : 'Set up profile'}
+          {myPerson ? 'Edit' : 'Find or create profile'}
         </Link>
       </div>
 
@@ -76,9 +76,9 @@ export default function MyProfile() {
       ) : (
         <div className="card border-dashed border-gray-300 bg-gray-50 text-center py-12">
           <TreePine className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 mb-4">You haven't set up your family tree profile yet.</p>
+          <p className="text-gray-500 mb-4">Find your existing family entry or create a new profile.</p>
           <Link to="/setup-profile" className="btn-primary text-sm">
-            Create your profile
+            Find or create my profile
           </Link>
         </div>
       )}

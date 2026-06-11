@@ -110,6 +110,47 @@
   --amplify-radii-medium: 0.75rem;
 }
 
+/* ── Login page Authenticator styling ───────────────────────────────────── */
+.auth-page-form [data-amplify-authenticator] {
+  --amplify-components-authenticator-router-box-shadow: none;
+  --amplify-components-authenticator-router-border-width: 0;
+  --amplify-components-tabs-item-active-border-color: #d08f15;
+  --amplify-components-tabs-item-active-color: #0d3225;
+  --amplify-components-tabs-item-color: #6b7280;
+  --amplify-components-fieldcontrol-focus-border-color: #2e8462;
+  --amplify-components-fieldcontrol-focus-box-shadow: 0 0 0 3px rgb(46 132 98 / 0.14);
+  --amplify-components-button-primary-background-color: #17543d;
+  --amplify-components-button-primary-hover-background-color: #124231;
+  --amplify-components-button-link-color: #17543d;
+  width: 100%;
+}
+
+.auth-page-form [data-amplify-router] {
+  border: 0;
+  box-shadow: none;
+}
+
+.auth-page-form [data-amplify-container] {
+  width: 100%;
+}
+
+.auth-page-form [role='tablist'] {
+  border-bottom: 1px solid #f0f2f1;
+}
+
+.auth-page-form [role='tab'] {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.auth-page-form .amplify-field__show-password {
+  color: #17543d;
+}
+
+.auth-page-form .amplify-button--primary {
+  font-weight: 700;
+}
+
 /* ── Tree connectors ─────────────────────────────────────────────────────── */
 .tree-connector-v {
   width: 2px;

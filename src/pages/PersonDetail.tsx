@@ -44,13 +44,13 @@ export default function PersonDetail() {
       if (pid && pid !== person.id) ids.add(pid);
     };
 
-    // explicit spouse pointer + reverse pointer
+    // Explicit spouses define families even without children.
     push(person.spouseId);
     persons.forEach(p => {
       if (p.spouseId === person.id) push(p.id);
     });
 
-    // co-parents of this person's children (supports multiple marriages)
+    // Exact co-parents also define families.
     children.forEach(c => {
       if (c.fatherId === person.id) push(c.motherId);
       if (c.motherId === person.id) push(c.fatherId);

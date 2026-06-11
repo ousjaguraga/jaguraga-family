@@ -293,7 +293,7 @@ export default function FamilyTree() {
                         You're not in the family tree yet
                       </p>
                       <p className="mt-0.5 text-sm text-gray-600">
-                        Add yourself and link to your parents, spouse, and siblings.
+                        Find your existing entry, or create one if you are not listed.
                       </p>
                     </>
                   ) : (
@@ -313,7 +313,7 @@ export default function FamilyTree() {
                     className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-burgundy-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-burgundy-700"
                   >
                     <UserPlus className="h-4 w-4" />
-                    Add yourself
+                    Find yourself
                   </Link>
                 ) : (
                   <Link

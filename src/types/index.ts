@@ -33,7 +33,7 @@ export interface Person {
   owner?:        string | null;
 }
 
-export type JoinRequestType   = 'LINK_EXISTING' | 'NEW_FAMILY';
+export type JoinRequestType   = 'CLAIM_PROFILE' | 'LINK_EXISTING' | 'NEW_FAMILY';
 export type JoinRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 /** Names proposed for parents who aren't in the tree yet. */

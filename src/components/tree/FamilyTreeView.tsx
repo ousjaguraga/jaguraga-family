@@ -237,9 +237,8 @@ interface TreeNode {
 
 /**
  * Builds the full nested tree in one pass using a shared `placed` set so every
- * person appears exactly once. Supports MULTIPLE marriages: every spouse
- * (explicit spouseId link or implicit co-parent of a shared child) gets her
- * own union, with the children of that specific union nested under her.
+ * person appears exactly once. Supports multiple families: every spouse or
+ * recorded co-parent gets a union with only that exact pair's children.
  */
 function buildTree(
   roots:      Person[],
@@ -248,7 +247,7 @@ function buildTree(
 ): TreeNode[] {
   const placed = new Set<string>();
 
-  // ALL partners: spouse links (both directions) + co-parents of shared children.
+  // A family partner is either an explicit spouse or an exact co-parent.
   function partnersOf(p: Person): Person[] {
     const ids: string[] = [];
     const seen = new Set<string>([p.id]);
@@ -256,7 +255,9 @@ function buildTree(
       if (id && byId.has(id) && !seen.has(id)) { seen.add(id); ids.push(id); }
     };
     push(p.spouseId);
-    allPersons.forEach(q => { if (q.spouseId === p.id) push(q.id); });
+    allPersons.forEach(q => {
+      if (q.spouseId === p.id) push(q.id);
+    });
     allPersons.forEach(c => {
       if (c.fatherId === p.id) push(c.motherId);
       else if (c.motherId === p.id) push(c.fatherId);
@@ -266,16 +267,25 @@ function buildTree(
 
   function buildNode(p: Person): TreeNode {
     placed.add(p.id);
-    const partners = partnersOf(p).filter(s => !placed.has(s.id));
-    partners.forEach(s => placed.add(s.id));
+    // Do not hide a valid family just because its co-parent already appeared
+    // in another family card.
+    const partners = partnersOf(p);
+    partners.forEach(s => {
+      const hasSingleParentChildren = allPersons.some(c => {
+        if (c.fatherId === s.id) return !c.motherId || !byId.has(c.motherId);
+        if (c.motherId === s.id) return !c.fatherId || !byId.has(c.fatherId);
+        return false;
+      });
+      if (!hasSingleParentChildren) placed.add(s.id);
+    });
     const partnerIds = new Set(partners.map(s => s.id));
 
-    // children of p or any of p's partners, grouped by which union they belong to
+    // Only p's direct children belong here. Looking at a partner's other
+    // children mixes separate families together.
     const kids = allPersons
       .filter(c =>
         !placed.has(c.id) &&
-        ((c.fatherId != null && (c.fatherId === p.id || partnerIds.has(c.fatherId))) ||
-         (c.motherId != null && (c.motherId === p.id || partnerIds.has(c.motherId)))),
+        (c.fatherId === p.id || c.motherId === p.id),
       )
       .sort((a, b) => dateTime(a.birthDate) - dateTime(b.birthDate) || fullName(a).localeCompare(fullName(b)));
 
@@ -293,8 +303,6 @@ function buildTree(
       let key: string | null = null;
       if (c.fatherId === p.id)      key = c.motherId && partnerIds.has(c.motherId) ? c.motherId : null;
       else if (c.motherId === p.id) key = c.fatherId && partnerIds.has(c.fatherId) ? c.fatherId : null;
-      else if (c.fatherId && partnerIds.has(c.fatherId)) key = c.fatherId;
-      else if (c.motherId && partnerIds.has(c.motherId)) key = c.motherId;
 
       const node = buildNode(c);
       descendantCount += 1 + node.descendantCount;
@@ -584,4 +592,3 @@ export function FamilyAccordion({ persons }: { persons: Person[] }) {
     </div>
   );
 }
-

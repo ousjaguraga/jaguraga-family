@@ -8,7 +8,7 @@ import {
   type JoinRequestType,
   type NewFamilyProposal,
 } from '../types';
-import { createPerson, updatePerson } from './useFamily';
+import { claimPersonForAccount, createPerson, updatePerson } from './useFamily';
 
 const client = generateClient<Schema>();
 
@@ -88,11 +88,22 @@ export async function cancelJoinRequest(id: string): Promise<void> {
 }
 
 /**
- * Admin approval — applies the requested links to the requester's Person.
+ * Admin approval — claims an existing profile or applies requested family links.
  * For NEW_FAMILY requests the proposed parents are created first (as
  * admin-managed ancestors), then linked.
  */
 export async function approveJoinRequest(req: JoinRequest): Promise<void> {
+  if (req.type === 'CLAIM_PROFILE') {
+    if (!req.owner) throw new Error('This claim request is missing its account owner.');
+    const cognitoUserId = req.owner.split('::')[0];
+    if (!cognitoUserId) throw new Error('Unable to identify the account making this claim.');
+    await claimPersonForAccount(req.personId, cognitoUserId);
+
+    const { errors } = await client.models.JoinRequest.update({ id: req.id, status: 'APPROVED' });
+    if (errors?.length) throw new Error(errors[0].message);
+    return;
+  }
+
   let fatherId = req.fatherId ?? null;
   let motherId = req.motherId ?? null;
 

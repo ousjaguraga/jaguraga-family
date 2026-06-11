@@ -173,6 +173,22 @@ export async function updatePerson(id: string, input: Partial<Omit<Person, 'id' 
   return saved;
 }
 
+/** Admin-only: attach an existing tree entry to the account that claimed it. */
+export async function claimPersonForAccount(id: string, cognitoUserId: string): Promise<Person> {
+  const existing = await tryGetPerson(id);
+  if (!existing) throw new Error('This family member no longer exists.');
+  if (existing.cognitoUserId && existing.cognitoUserId !== cognitoUserId) {
+    throw new Error('This family member is already linked to another account.');
+  }
+
+  const { data, errors } = await client.models.Person.update({
+    id,
+    cognitoUserId,
+  } as Parameters<typeof client.models.Person.update>[0]);
+  if (errors?.length) throw new Error(errors[0].message);
+  return mapPerson(data!);
+}
+
 export async function deletePerson(id: string): Promise<void> {
   const { errors } = await client.models.Person.delete({ id });
   if (errors?.length) throw new Error(errors[0].message);

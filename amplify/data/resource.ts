@@ -28,6 +28,7 @@ const schema = a.schema({
     })
     .authorization(allow => [
       allow.owner(),
+      allow.ownerDefinedIn('cognitoUserId'),
       allow.group('Admin'),
       allow.authenticated().to(['read']),
     ]),

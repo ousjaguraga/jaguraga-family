@@ -60,12 +60,12 @@ export default function JoinFamily() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <UserPlus className="mx-auto h-12 w-12 text-burgundy-300" />
-        <h1 className="mt-4 font-serif text-3xl font-bold text-gray-900">First, add yourself</h1>
+        <h1 className="mt-4 font-serif text-3xl font-bold text-gray-900">First, find yourself</h1>
         <p className="mt-2 text-sm leading-6 text-gray-500">
-          Create your own profile, then come back here to link yourself to your family.
+          Link your existing family entry, or create a profile if you are not in the tree yet.
         </p>
         <Link to="/setup-profile" className="btn-primary mt-6 inline-flex items-center gap-2">
-          <UserPlus className="h-4 w-4" /> Create my profile
+          <UserPlus className="h-4 w-4" /> Find or create my profile
         </Link>
       </div>
     );
