@@ -3,9 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Heart, Loader2, Save, Search } from 'lucide-react';
 import PersonPicker from '../../components/PersonPicker';
 import { useAllPersons, updatePerson } from '../../hooks/useFamily';
-import { createFamilyUnion } from '../../hooks/useFamilyUnions';
 import { fullName, generationBelow } from '../../utils/helpers';
-import type { FamilyUnionStatus } from '../../types';
 
 export default function AddFamily() {
   const { persons, isLoading } = useAllPersons();
@@ -13,37 +11,32 @@ export default function AddFamily() {
   const navigate = useNavigate();
   const [partner1Id, setPartner1Id] = useState(searchParams.get('personId') ?? '');
   const [partner2Id, setPartner2Id] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [status, setStatus] = useState<FamilyUnionStatus>('UNKNOWN');
-  const [notes, setNotes] = useState('');
   const [childSearch, setChildSearch] = useState('');
   const [childIds, setChildIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const partner1 = persons.find(person => person.id === partner1Id) ?? null;
-  const partner2 = persons.find(person => person.id === partner2Id) ?? null;
-  const father = [partner1, partner2].find(person => person?.gender === 'MALE') ?? null;
-  const mother = [partner1, partner2].find(person => person?.gender === 'FEMALE') ?? null;
+  const partner1 = persons.find(p => p.id === partner1Id) ?? null;
+  const partner2 = persons.find(p => p.id === partner2Id) ?? null;
+  const father = [partner1, partner2].find(p => p?.gender === 'MALE') ?? null;
+  const mother = [partner1, partner2].find(p => p?.gender === 'FEMALE') ?? null;
   const childGeneration = partner1 ? generationBelow(partner1.generation) : null;
 
   const childCandidates = useMemo(() => {
     const q = childSearch.trim().toLowerCase();
     return persons
-      .filter(person => person.id !== partner1Id && person.id !== partner2Id)
-      .filter(person => !childGeneration || person.generation === childGeneration)
-      .filter(person => !father || !person.fatherId || person.fatherId === father.id)
-      .filter(person => !mother || !person.motherId || person.motherId === mother.id)
-      .filter(person => !q || fullName(person).toLowerCase().includes(q))
+      .filter(p => p.id !== partner1Id && p.id !== partner2Id)
+      .filter(p => !childGeneration || p.generation === childGeneration)
+      .filter(p => !father || !p.fatherId || p.fatherId === father.id)
+      .filter(p => !mother || !p.motherId || p.motherId === mother.id)
+      .filter(p => !q || fullName(p).toLowerCase().includes(q))
       .sort((a, b) => fullName(a).localeCompare(fullName(b)));
   }, [childGeneration, childSearch, father, mother, partner1Id, partner2Id, persons]);
 
   function toggleChild(id: string) {
-    setChildIds(current => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+    setChildIds(cur => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }
@@ -58,8 +51,8 @@ export default function AddFamily() {
         throw new Error('Children can only be linked when the family has one male and one female parent.');
       }
       const selectedChildren = [...childIds]
-        .map(id => persons.find(person => person.id === id))
-        .filter((person): person is NonNullable<typeof person> => Boolean(person));
+        .map(id => persons.find(p => p.id === id))
+        .filter((p): p is NonNullable<typeof p> => Boolean(p));
       const conflict = selectedChildren.find(child =>
         (father && child.fatherId && child.fatherId !== father.id) ||
         (mother && child.motherId && child.motherId !== mother.id));
@@ -67,15 +60,10 @@ export default function AddFamily() {
         throw new Error(`${fullName(conflict)} already has a conflicting parent link.`);
       }
 
-      await createFamilyUnion({
-        partner1Id: partner1.id,
-        partner2Id: partner2.id,
-        startDate: startDate || null,
-        endDate: endDate || null,
-        status,
-        notes: notes.trim() || null,
-      });
+      // Link the two partners as spouses (updatePerson auto-sets the reciprocal link)
+      await updatePerson(partner1.id, { spouseId: partner2.id });
 
+      // Link selected children to their parents
       await Promise.all(
         selectedChildren.map(child => updatePerson(child.id, {
           fatherId: father?.id ?? null,
@@ -104,7 +92,7 @@ export default function AddFamily() {
       <div className="mb-8">
         <h1 className="section-heading text-3xl">Add Family</h1>
         <p className="mt-1 text-gray-500">
-          Record a marriage or partnership directly. Each person can belong to multiple families.
+          Link two partners and optionally assign their children in one step.
         </p>
       </div>
 
@@ -131,30 +119,6 @@ export default function AddFamily() {
               generation={partner1?.generation ?? null}
               placeholder="Search for the second partner…"
             />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="label">Relationship status</label>
-              <select className="input" value={status} onChange={e => setStatus(e.target.value as FamilyUnionStatus)}>
-                <option value="UNKNOWN">Unknown / not recorded</option>
-                <option value="CURRENT">Current</option>
-                <option value="ENDED">Ended / former</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Started</label>
-              <input type="date" className="input" value={startDate} onChange={e => setStartDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Ended</label>
-              <input type="date" className="input" value={endDate} onChange={e => setEndDate(e.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Notes</label>
-            <textarea className="input resize-none" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional marriage or family notes…" />
           </div>
         </div>
 
