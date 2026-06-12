@@ -68,9 +68,15 @@ export function useAllPersons() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, errors } = await client.models.Person.list();
-      if (errors?.length) throw new Error(errors[0].message);
-      setPersons((data ?? []).map(mapPerson));
+      const all: Person[] = [];
+      let token: string | undefined;
+      do {
+        const res = await client.models.Person.list({ nextToken: token });
+        if (res.errors?.length) throw new Error(res.errors[0].message);
+        all.push(...(res.data ?? []).map(mapPerson));
+        token = (res as { nextToken?: string }).nextToken ?? undefined;
+      } while (token);
+      setPersons(all);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

@@ -1,12 +1,48 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getUrl } from 'aws-amplify/storage';
-import { Loader2, Calendar, MapPin, Edit, Trash2, Users, ArrowLeft, UserPlus } from 'lucide-react';
+import { Loader2, Calendar, MapPin, Edit, Trash2, Users, ArrowLeft, GitBranch, UserPlus } from 'lucide-react';
 import { usePersonById, getSiblings, deletePerson } from '../hooks/useFamily';
 import { useAllPersons } from '../hooks/useFamily';
 import { useAuth } from '../context/AuthContext';
 import { fullName, initials, formatDate, getAge } from '../utils/helpers';
 import { GENERATION_LABELS, type Person } from '../types';
+
+interface AncestorNode {
+  person: Person;
+  relation: string;
+  parents: AncestorNode[];
+}
+
+const RELATION_LABELS = {
+  father: ['Father', 'Grandfather', 'Great-grandfather'],
+  mother: ['Mother', 'Grandmother', 'Great-grandmother'],
+} as const;
+
+function buildAncestorNode(
+  person: Person | null,
+  relation: keyof typeof RELATION_LABELS,
+  depth: number,
+  byId: Map<string, Person>,
+  trail: Set<string>,
+): AncestorNode | null {
+  if (!person || trail.has(person.id) || depth > 3) return null;
+  const nextTrail = new Set(trail).add(person.id);
+  const father = person.fatherId ? byId.get(person.fatherId) ?? null : null;
+  const mother = person.motherId ? byId.get(person.motherId) ?? null : null;
+  const parents = depth < 3
+    ? [
+        buildAncestorNode(father, 'father', depth + 1, byId, nextTrail),
+        buildAncestorNode(mother, 'mother', depth + 1, byId, nextTrail),
+      ].filter((node): node is AncestorNode => node !== null)
+    : [];
+
+  return {
+    person,
+    relation: RELATION_LABELS[relation][depth - 1],
+    parents,
+  };
+}
 
 export default function PersonDetail() {
   const { id }                      = useParams<{ id: string }>();
@@ -36,6 +72,7 @@ export default function PersonDetail() {
 
   const father  = person?.fatherId  ? persons.find(p => p.id === person.fatherId)  : null;
   const mother  = person?.motherId  ? persons.find(p => p.id === person.motherId)  : null;
+  const byId = new Map(persons.map(p => [p.id, p]));
   const children = persons.filter(p => p.fatherId === id || p.motherId === id);
   const partners = (() => {
     if (!person) return [] as Person[];
@@ -93,6 +130,11 @@ export default function PersonDetail() {
     return [...merged.values()].sort((a, b) => fullName(a).localeCompare(fullName(b)));
   })();
 
+  const ancestorBranches = [
+    buildAncestorNode(father ?? null, 'father', 1, byId, new Set([person?.id ?? ''])),
+    buildAncestorNode(mother ?? null, 'mother', 1, byId, new Set([person?.id ?? ''])),
+  ].filter((node): node is AncestorNode => node !== null);
+
   async function handleDelete() {
     if (!id || !window.confirm('Remove this person from the family tree?')) return;
     setDeleting(true);
@@ -135,10 +177,10 @@ export default function PersonDetail() {
           }
         </div>
 
-        <div className="flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-gray-900">{fullName(person)}</h1>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col items-start gap-4 min-[420px]:flex-row min-[420px]:justify-between">
+            <div className="min-w-0">
+              <h1 className="break-words font-serif text-3xl font-bold text-gray-900">{fullName(person)}</h1>
               {person.nickname && (
                 <p className="mt-0.5 font-serif text-lg italic text-gold-700">“{person.nickname}”</p>
               )}
@@ -154,7 +196,7 @@ export default function PersonDetail() {
             </div>
 
             {canEdit && (
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex flex-wrap gap-2">
                 <Link to={`/edit-person/${person.id}`} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1">
                   <Edit className="w-3.5 h-3.5" />
                   Edit
@@ -206,28 +248,11 @@ export default function PersonDetail() {
         </div>
       </div>
 
-      {/* Parents (compact) */}
-      <div className="card mb-4">
-        <h2 className="mb-2 font-serif text-base font-semibold text-gray-900">Parents</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-2">
-            {father
-              ? <MiniPersonLink person={father} label="Father" compact />
-              : canEdit
-                ? <AddRelativeButton to={`/add-relative/${person.id}/father`} label="Add father" compact />
-                : <p className="px-1 text-xs text-gray-400">Father not linked.</p>
-            }
-          </div>
-          <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-2">
-            {mother
-              ? <MiniPersonLink person={mother} label="Mother" compact />
-              : canEdit
-                ? <AddRelativeButton to={`/add-relative/${person.id}/mother`} label="Add mother" compact />
-                : <p className="px-1 text-xs text-gray-400">Mother not linked.</p>
-            }
-          </div>
-        </div>
-      </div>
+      <DirectLineage
+        person={person}
+        branches={ancestorBranches}
+        canEdit={canEdit}
+      />
 
       {/* Relationships */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -278,6 +303,83 @@ export default function PersonDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DirectLineage({
+  person,
+  branches,
+  canEdit,
+}: {
+  person: Person;
+  branches: AncestorNode[];
+  canEdit: boolean;
+}) {
+  return (
+    <section className="card mb-6 overflow-hidden">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-burgundy-100 text-burgundy-700">
+          <GitBranch className="h-4 w-4" />
+        </span>
+        <div>
+          <h2 className="font-serif text-lg font-semibold text-gray-900">Direct Lineage</h2>
+          <p className="mt-0.5 text-xs leading-5 text-gray-500">
+            Parents, grandparents, and great-grandparents recorded for {person.firstName}.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-burgundy-100 bg-burgundy-50/50 p-2">
+        <MiniPersonLink person={person} label="Profile" compact />
+      </div>
+
+      {branches.length > 0 ? (
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {branches.map(branch => (
+            <AncestorBranch key={branch.person.id} node={branch} depth={1} />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {canEdit ? (
+            <>
+              <AddRelativeButton to={`/add-relative/${person.id}/father`} label="Add father" compact />
+              <AddRelativeButton to={`/add-relative/${person.id}/mother`} label="Add mother" compact />
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">No direct ancestors are linked yet.</p>
+          )}
+        </div>
+      )}
+
+      {canEdit && branches.length > 0 && branches.length < 2 && (
+        <div className="mt-4 border-t border-gray-100 pt-3">
+          {!branches.some(branch => branch.relation === 'Father') && (
+            <AddRelativeButton to={`/add-relative/${person.id}/father`} label="Add father" compact />
+          )}
+          {!branches.some(branch => branch.relation === 'Mother') && (
+            <AddRelativeButton to={`/add-relative/${person.id}/mother`} label="Add mother" compact />
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AncestorBranch({ node, depth }: { node: AncestorNode; depth: number }) {
+  return (
+    <div className={depth === 1 ? 'min-w-0' : 'relative ml-4 border-l border-gold-200 pl-3'}>
+      <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
+        <MiniPersonLink person={node.person} label={node.relation} compact />
+      </div>
+      {node.parents.length > 0 && (
+        <div className="mt-2 space-y-2">
+          {node.parents.map(parent => (
+            <AncestorBranch key={`${node.person.id}-${parent.person.id}`} node={parent} depth={depth + 1} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
