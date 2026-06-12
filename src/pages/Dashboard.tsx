@@ -5,6 +5,8 @@ import { useAllPersons } from '../hooks/useFamily';
 import { useJoinRequests } from '../hooks/useRequests';
 import PersonCard from '../components/PersonCard';
 import HunterLogo from '../components/HunterLogo';
+import FamilyStatsCard from '../components/FamilyStatsCard';
+import OnThisDay from '../components/OnThisDay';
 import { GENERATION_ORDER } from '../types';
 
 function StatCard({ value, label, color }: { value: number; label: string; color: string }) {
@@ -99,6 +101,9 @@ export default function Dashboard() {
           </Link>
         )}
 
+        {/* ── On this day ────────────────────────────────────────────────── */}
+        {!isLoading && <OnThisDay persons={persons} />}
+
         {/* ── Stats ──────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard value={persons.length}              label="Total members"      color="bg-burgundy-700 text-white" />
@@ -150,6 +155,9 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* ── Family facts ────────────────────────────────────────────────── */}
+        {!isLoading && <FamilyStatsCard persons={persons} />}
 
         {/* ── Recently added ──────────────────────────────────────────────── */}
         <div>

@@ -3,6 +3,7 @@ import { Loader2, Edit, UserPlus, TreePine } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAllPersons } from '../hooks/useFamily';
 import PersonCard from '../components/PersonCard';
+import RelationshipFinder from '../components/RelationshipFinder';
 
 export default function MyProfile() {
   const { user, userAttrs, isAdmin } = useAuth();
@@ -81,6 +82,11 @@ export default function MyProfile() {
             Find or create my profile
           </Link>
         </div>
+      )}
+
+      {/* How are we related? */}
+      {persons.length > 0 && (
+        <RelationshipFinder persons={persons} initialAId={myPerson?.id ?? null} />
       )}
     </div>
   );

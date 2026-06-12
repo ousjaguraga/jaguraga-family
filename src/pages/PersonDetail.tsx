@@ -4,6 +4,8 @@ import { getUrl } from 'aws-amplify/storage';
 import { Loader2, Calendar, MapPin, Edit, Trash2, Users, ArrowLeft, GitBranch, UserPlus } from 'lucide-react';
 import { usePersonById, getSiblings, deletePerson } from '../hooks/useFamily';
 import { useAllPersons } from '../hooks/useFamily';
+import LineageTree from '../components/tree/LineageTree';
+import RelationshipFinder from '../components/RelationshipFinder';
 import { useAuth } from '../context/AuthContext';
 import { fullName, initials, formatDate, getAge } from '../utils/helpers';
 import { GENERATION_LABELS, type Person } from '../types';
@@ -19,6 +21,12 @@ const RELATION_LABELS = {
   mother: ['Mother', 'Grandmother', 'Great-grandmother'],
 } as const;
 
+function relationLabel(relation: keyof typeof RELATION_LABELS, depth: number): string {
+  if (depth <= 3) return RELATION_LABELS[relation][depth - 1];
+  const side = relation === 'father' ? 'grandfather' : 'grandmother';
+  return `${'Great-'.repeat(depth - 2)}${side}`;
+}
+
 function buildAncestorNode(
   person: Person | null,
   relation: keyof typeof RELATION_LABELS,
@@ -26,20 +34,18 @@ function buildAncestorNode(
   byId: Map<string, Person>,
   trail: Set<string>,
 ): AncestorNode | null {
-  if (!person || trail.has(person.id) || depth > 3) return null;
+  if (!person || trail.has(person.id)) return null;
   const nextTrail = new Set(trail).add(person.id);
   const father = person.fatherId ? byId.get(person.fatherId) ?? null : null;
   const mother = person.motherId ? byId.get(person.motherId) ?? null : null;
-  const parents = depth < 3
-    ? [
-        buildAncestorNode(father, 'father', depth + 1, byId, nextTrail),
-        buildAncestorNode(mother, 'mother', depth + 1, byId, nextTrail),
-      ].filter((node): node is AncestorNode => node !== null)
-    : [];
+  const parents = [
+    buildAncestorNode(father, 'father', depth + 1, byId, nextTrail),
+    buildAncestorNode(mother, 'mother', depth + 1, byId, nextTrail),
+  ].filter((node): node is AncestorNode => node !== null);
 
   return {
     person,
-    relation: RELATION_LABELS[relation][depth - 1],
+    relation: relationLabel(relation, depth),
     parents,
   };
 }
@@ -98,6 +104,8 @@ export default function PersonDetail() {
       .filter((p): p is Person => p !== null)
       .sort((a, b) => fullName(a).localeCompare(fullName(b)));
   })();
+
+  const myPersonId = persons.find(p => p.cognitoUserId === user?.userId)?.id ?? null;
 
   const isOwner = user?.userId === person?.owner?.split('::')[1] ||
                   user?.userId === person?.cognitoUserId;
@@ -250,8 +258,15 @@ export default function PersonDetail() {
 
       <DirectLineage
         person={person}
+        persons={persons}
         branches={ancestorBranches}
         canEdit={canEdit}
+      />
+
+      <RelationshipFinder
+        persons={persons}
+        initialAId={myPersonId !== person.id ? myPersonId : null}
+        initialBId={person.id}
       />
 
       {/* Relationships */}
@@ -309,10 +324,12 @@ export default function PersonDetail() {
 
 function DirectLineage({
   person,
+  persons,
   branches,
   canEdit,
 }: {
   person: Person;
+  persons: Person[];
   branches: AncestorNode[];
   canEdit: boolean;
 }) {
@@ -325,10 +342,16 @@ function DirectLineage({
         <div>
           <h2 className="font-serif text-lg font-semibold text-gray-900">Direct Lineage</h2>
           <p className="mt-0.5 text-xs leading-5 text-gray-500">
-            Parents, grandparents, and great-grandparents recorded for {person.firstName}.
+            The full connected line from {person.firstName} up to the founding ancestors.
           </p>
         </div>
       </div>
+
+      {branches.length > 0 && (
+        <div className="mb-4">
+          <LineageTree person={person} persons={persons} />
+        </div>
+      )}
 
       <div className="rounded-lg border border-burgundy-100 bg-burgundy-50/50 p-2">
         <MiniPersonLink person={person} label="Profile" compact />

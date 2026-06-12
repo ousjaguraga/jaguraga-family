@@ -411,7 +411,7 @@ export function layoutFamily(persons: Person[]): LayoutResult {
 }
 
 // ── Custom person node ────────────────────────────────────────────────────
-type PersonNodeData = {
+export type PersonNodeData = {
   person: Person;
   /** true when this person heads the family currently on screen */
   isHead?: boolean;
@@ -521,7 +521,7 @@ function UnionNode() {
   );
 }
 
-const nodeTypes: NodeTypes = { person: PersonNode, union: UnionNode };
+export const nodeTypes: NodeTypes = { person: PersonNode, union: UnionNode };
 
 // ── Build React Flow nodes + edges ────────────────────────────────────────
 function buildGraph(

@@ -45,4 +45,10 @@ declare module 'lucide-react' {
   export const Send:         LucideIcon;
   export const XCircle:      LucideIcon;
   export const Download:     LucideIcon;
+  export const ArrowLeftRight: LucideIcon;
+  export const HeartHandshake: LucideIcon;
+  export const Crown:          LucideIcon;
+  export const Baby:           LucideIcon;
+  export const Cake:           LucideIcon;
+  export const Sparkles:       LucideIcon;
 }
